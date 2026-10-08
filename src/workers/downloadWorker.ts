@@ -37,9 +37,15 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
       args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
       let formatSelector = 'bestvideo+bestaudio/best';
-      if (formatId === '1080p') {
+      if (formatId === '2160p' || formatId === '4k') {
         formatSelector =
-          'bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best';
+          'bestvideo[height<=2160]+bestaudio/best[height<=2160]/best';
+      } else if (formatId === '1440p' || formatId === '2k') {
+        formatSelector =
+          'bestvideo[height<=1440]+bestaudio/best[height<=1440]/best';
+      } else if (formatId === '1080p') {
+        formatSelector =
+          'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best';
       } else if (formatId === '720p') {
         formatSelector =
           'bestvideo[height<=720]+bestaudio/best[height<=720]/best';

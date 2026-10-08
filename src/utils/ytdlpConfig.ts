@@ -82,7 +82,7 @@ export function getYtDlpBaseArgs(): string[] {
     '--remote-components',
     'ejs:github',
     '--js-runtimes',
-    `node:${process.execPath}`,
+    'node',
   ];
 
   const ffmpeg = getFFmpegPath();
@@ -93,8 +93,9 @@ export function getYtDlpBaseArgs(): string[] {
   const cookies = getCookiesPath();
   if (cookies) {
     args.push('--cookies', cookies);
+    args.push('--extractor-args', 'youtube:player_client=web,web_embedded,android');
   } else {
-    args.push('--extractor-args', 'youtube:player_client=visionos,android,ios,mweb');
+    args.push('--extractor-args', 'youtube:player_client=web_embedded,android');
   }
 
   const proxyUrl = process.env.PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;

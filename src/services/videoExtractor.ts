@@ -112,14 +112,58 @@ export class VideoExtractorService {
 
             const formats: VideoFormat[] = [];
 
+            const findEstimatedSize = (targetHeight: number, defaultLabel: string): { size: number | null; formatted: string } => {
+              const match = (data.formats || []).find((f: any) => f.height === targetHeight && (f.filesize || f.filesize_approx));
+              if (match) {
+                const bytes = match.filesize || match.filesize_approx;
+                if (typeof bytes === 'number' && bytes > 0) {
+                  return { size: bytes, formatted: formatBytes(bytes) };
+                }
+              }
+              return { size: null, formatted: defaultLabel };
+            };
+
+            if (maxHeight >= 2160) {
+              const sz = findEstimatedSize(2160, '4K Ultra HD');
+              formats.push({
+                formatId: '2160p',
+                quality: '4K Ultra HD 2160p',
+                resolution: '3840x2160',
+                extension: 'mp4',
+                filesize: sz.size,
+                formattedSize: sz.formatted,
+                downloadUrl: url,
+                isDirect: false,
+                hasAudio: true,
+                hasVideo: true,
+              });
+            }
+
+            if (maxHeight >= 1440) {
+              const sz = findEstimatedSize(1440, '2K Quad HD');
+              formats.push({
+                formatId: '1440p',
+                quality: '2K Quad HD 1440p',
+                resolution: '2560x1440',
+                extension: 'mp4',
+                filesize: sz.size,
+                formattedSize: sz.formatted,
+                downloadUrl: url,
+                isDirect: false,
+                hasAudio: true,
+                hasVideo: true,
+              });
+            }
+
             if (maxHeight >= 1080) {
+              const sz = findEstimatedSize(1080, 'Full HD');
               formats.push({
                 formatId: '1080p',
                 quality: 'Full HD 1080p',
                 resolution: '1920x1080',
                 extension: 'mp4',
-                filesize: null,
-                formattedSize: 'Full HD',
+                filesize: sz.size,
+                formattedSize: sz.formatted,
                 downloadUrl: url,
                 isDirect: false,
                 hasAudio: true,
@@ -128,13 +172,14 @@ export class VideoExtractorService {
             }
 
             if (maxHeight >= 720) {
+              const sz = findEstimatedSize(720, 'HD Ready');
               formats.push({
                 formatId: '720p',
                 quality: 'HD 720p',
                 resolution: '1280x720',
                 extension: 'mp4',
-                filesize: null,
-                formattedSize: 'HD Ready',
+                filesize: sz.size,
+                formattedSize: sz.formatted,
                 downloadUrl: url,
                 isDirect: false,
                 hasAudio: true,
@@ -143,13 +188,14 @@ export class VideoExtractorService {
             }
 
             if (maxHeight >= 480) {
+              const sz = findEstimatedSize(480, 'Standard');
               formats.push({
                 formatId: '480p',
                 quality: 'Medium 480p',
                 resolution: '854x480',
                 extension: 'mp4',
-                filesize: null,
-                formattedSize: 'Standard',
+                filesize: sz.size,
+                formattedSize: sz.formatted,
                 downloadUrl: url,
                 isDirect: false,
                 hasAudio: true,
@@ -157,13 +203,14 @@ export class VideoExtractorService {
               });
             }
 
+            const sz360 = findEstimatedSize(360, 'Compact');
             formats.push({
               formatId: '360p',
               quality: 'Standard 360p',
               resolution: '640x360',
               extension: 'mp4',
-              filesize: null,
-              formattedSize: 'Compact',
+              filesize: sz360.size,
+              formattedSize: sz360.formatted,
               downloadUrl: url,
               isDirect: false,
               hasAudio: true,
