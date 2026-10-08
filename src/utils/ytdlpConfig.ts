@@ -18,13 +18,11 @@ export function getFFmpegPath(): string | null {
   if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
     return process.env.FFMPEG_PATH;
   }
-  // Common Windows imageio path
   const defaultImageio =
     'C:\\Users\\YASHDIP\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\imageio_ffmpeg\\binaries\\ffmpeg-win-x86_64-v7.1.exe';
   if (fs.existsSync(defaultImageio)) {
     return defaultImageio;
   }
-  // In Linux / Docker, ffmpeg is installed system-wide in PATH
   return null;
 }
 
@@ -33,7 +31,6 @@ export function getCookiesPath(): string | null {
     return cachedCookiesPath;
   }
 
-  // 1. Check for Base64 cookies string in env (ideal for cloud deployment: Render, Railway, AWS, DigitalOcean)
   if (process.env.YOUTUBE_COOKIES_BASE64) {
     try {
       const decoded = Buffer.from(process.env.YOUTUBE_COOKIES_BASE64, 'base64').toString('utf-8');
@@ -46,13 +43,11 @@ export function getCookiesPath(): string | null {
     }
   }
 
-  // 2. Check explicitly configured path
   if (process.env.YOUTUBE_COOKIES_PATH && fs.existsSync(process.env.YOUTUBE_COOKIES_PATH)) {
     cachedCookiesPath = process.env.YOUTUBE_COOKIES_PATH;
     return cachedCookiesPath;
   }
 
-  // 3. Check common cookie file names in current and parent directory
   const candidateNames = [
     'cookies.txt',
     'www.youtube.com_cookies.txt',
@@ -99,17 +94,14 @@ export function getYtDlpBaseArgs(): string[] {
   if (cookies) {
     args.push('--cookies', cookies);
   } else {
-    // When unauthenticated, fallback to clients that don't immediately bot-block
     args.push('--extractor-args', 'youtube:player_client=visionos,android,ios,mweb');
   }
 
-  // Support for proxy in deployment (crucial for Cloud / VPS / Datacenter IPs)
   const proxyUrl = process.env.PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
   if (proxyUrl) {
     args.push('--proxy', proxyUrl);
   }
 
-  // Support for BotGuard PO Token Provider container (e.g. brainicism/bgutil-ytdlp-pot-provider)
   if (process.env.YOUTUBE_POT_PROVIDER_URL) {
     args.push('--extractor-args', `youtubepot:provider=${process.env.YOUTUBE_POT_PROVIDER_URL}`);
   }

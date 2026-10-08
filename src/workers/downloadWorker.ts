@@ -36,7 +36,6 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
     if (isAudio) {
       args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
-      // Universal selector supporting both split streams (YouTube) and single streams (Twitter/X, Instagram, TikTok)
       let formatSelector = 'bestvideo+bestaudio/best';
       if (formatId === '1080p') {
         formatSelector =
