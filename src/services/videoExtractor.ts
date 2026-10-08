@@ -17,47 +17,67 @@ import { getYtDlpBaseArgs, getFFmpegPath, getPythonBin } from '../utils/ytdlpCon
 
 const FFMPEG_BIN = getFFmpegPath();
 
+const infoCache = new Map<string, { data: MediaExtractionResult; timestamp: number }>();
+const CACHE_TTL_MS = 60 * 60 * 1000;
+
 export class VideoExtractorService {
   async extractVideoInfo(rawUrl: string): Promise<MediaExtractionResult> {
-    if (!isValidUrl(rawUrl)) {
+    const cleanUrl = rawUrl.trim();
+    if (!isValidUrl(cleanUrl)) {
       throw new Error('Invalid URL provided. Please enter a valid web link.');
     }
 
-    const platform = detectPlatform(rawUrl);
-
-    if (platform.id === 'direct') {
-      return await this.extractDirectMedia(rawUrl, platform);
+    const cached = infoCache.get(cleanUrl);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
     }
 
-    const ytDlpPlatforms = ['youtube', 'instagram', 'tiktok', 'twitter', 'facebook', 'vimeo', 'reddit'];
-    if (ytDlpPlatforms.includes(platform.id)) {
-      try {
-        return await this.extractYtDlpMedia(rawUrl, platform);
-      } catch (err: unknown) {
-        if (platform.id === 'youtube') {
-          throw err;
+    const platform = detectPlatform(cleanUrl);
+    let result: MediaExtractionResult;
+
+    if (platform.id === 'direct') {
+      result = await this.extractDirectMedia(cleanUrl, platform);
+    } else {
+      const ytDlpPlatforms = ['youtube', 'instagram', 'tiktok', 'twitter', 'facebook', 'vimeo', 'reddit'];
+      if (ytDlpPlatforms.includes(platform.id)) {
+        try {
+          result = await this.extractYtDlpMedia(cleanUrl, platform);
+        } catch (err: unknown) {
+          if (platform.id === 'youtube') {
+            throw err;
+          }
+          const msg = err instanceof Error ? err.message : String(err);
+          if (
+            msg.includes('not available') ||
+            msg.includes('restricted') ||
+            msg.includes('Private video') ||
+            msg.includes('sign-in') ||
+            msg.includes('copyright')
+          ) {
+            throw err;
+          }
+          console.warn(`yt-dlp extraction failed for ${cleanUrl}, falling back to webpage parser:`, msg);
+          result = await this.extractWebpageMedia(cleanUrl, platform);
         }
-        const msg = err instanceof Error ? err.message : String(err);
-        if (
-          msg.includes('not available') ||
-          msg.includes('restricted') ||
-          msg.includes('Private video') ||
-          msg.includes('sign-in') ||
-          msg.includes('copyright')
-        ) {
-          throw err;
-        }
-        console.warn(`yt-dlp extraction failed for ${rawUrl}, falling back to webpage parser:`, msg);
+      } else {
+        result = await this.extractWebpageMedia(cleanUrl, platform);
       }
     }
 
-    return await this.extractWebpageMedia(rawUrl, platform);
+    infoCache.set(cleanUrl, { data: result, timestamp: Date.now() });
+    if (infoCache.size > 500) {
+      const oldest = infoCache.keys().next().value;
+      if (oldest) infoCache.delete(oldest);
+    }
+
+    return result;
   }
 
   async extractYtDlpMedia(url: string, platform: PlatformInfo): Promise<MediaExtractionResult> {
     return new Promise((resolve, reject) => {
       const args = [
         ...getYtDlpBaseArgs(),
+        '--no-playlist',
         '--dump-single-json',
         '--skip-download',
         url,

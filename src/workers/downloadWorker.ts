@@ -10,6 +10,29 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
+const purgeOldTempFiles = () => {
+  try {
+    if (!fs.existsSync(tempDir)) return;
+    const now = Date.now();
+    const maxAgeMs = 45 * 60 * 1000;
+    const files = fs.readdirSync(tempDir);
+    for (const file of files) {
+      const fullPath = path.join(tempDir, file);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (now - stat.mtimeMs > maxAgeMs) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch {
+      }
+    }
+  } catch {
+  }
+};
+
+setInterval(purgeOldTempFiles, 10 * 60 * 1000);
+purgeOldTempFiles();
+
 import { getYtDlpBaseArgs, getPythonBin } from '../utils/ytdlpConfig';
 
 downloadQueue.registerProcessor(async (job, updateProgress) => {
@@ -26,6 +49,7 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
 
     const args = [
       ...getYtDlpBaseArgs(),
+      '--no-playlist',
       '--concurrent-fragments', '5',
       '--buffer-size', '1024K',
       '--no-mtime',
