@@ -10,7 +10,7 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
-import { getYtDlpBaseArgs } from '../utils/ytdlpConfig';
+import { getYtDlpBaseArgs, getPythonBin } from '../utils/ytdlpConfig';
 
 downloadQueue.registerProcessor(async (job, updateProgress) => {
   const { url, formatId, title } = job.data as any;
@@ -36,20 +36,20 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
     if (isAudio) {
       args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
-      let formatSelector =
-        'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best';
+      // Universal selector supporting both split streams (YouTube) and single streams (Twitter/X, Instagram, TikTok)
+      let formatSelector = 'bestvideo+bestaudio/best';
       if (formatId === '1080p') {
         formatSelector =
-          'bestvideo[height=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=1080]+bestaudio/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best';
+          'bestvideo[height<=1080]+bestaudio/best[height<=1080]/bestvideo+bestaudio/best';
       } else if (formatId === '720p') {
         formatSelector =
-          'bestvideo[height=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=720]+bestaudio/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best';
+          'bestvideo[height<=720]+bestaudio/best[height<=720]/best';
       } else if (formatId === '480p') {
         formatSelector =
-          'bestvideo[height=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=480]+bestaudio/bestvideo[height<=480]+bestaudio/best';
+          'bestvideo[height<=480]+bestaudio/best[height<=480]/best';
       } else if (formatId === '360p') {
         formatSelector =
-          'bestvideo[height=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=360]+bestaudio/bestvideo[height<=360]+bestaudio/best';
+          'bestvideo[height<=360]+bestaudio/best[height<=360]/best';
       }
       args.push('-f', formatSelector, '--merge-output-format', 'mp4');
     }
@@ -57,12 +57,24 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
     args.push('--newline');
     args.push('-o', outTemplate, url);
 
-    const child = execFile('python', args, { maxBuffer: 15 * 1024 * 1024, timeout: 300000 }, (error, stdout, stderr) => {
+    const pythonBin = getPythonBin();
+    const child = execFile(pythonBin, args, { maxBuffer: 15 * 1024 * 1024, timeout: 300000 }, (error, stdout, stderr) => {
       if (error) {
-        const errDetails = stderr || error.message || '';
+        console.error('Download worker error:', error.message, stderr);
+        const errDetails = (stderr || error.message || '').toString();
         let userMsg = 'Failed to process media download.';
-        if (errDetails.includes('Requested format is not available')) userMsg = 'Requested resolution not available.';
-        else if (errDetails.includes('not available') || errDetails.includes('Private video')) userMsg = 'Video is restricted or private.';
+        if (errDetails.includes('Requested format is not available')) {
+          userMsg = 'Requested resolution not available on this stream.';
+        } else if (errDetails.includes('not available') || errDetails.includes('Private video')) {
+          userMsg = 'Video is restricted or private.';
+        } else if (errDetails.includes('HTTP Error 429')) {
+          userMsg = 'Rate limit reached. Please try again in a few moments.';
+        } else {
+          const lines = errDetails.split('\n').map(l => l.trim()).filter(l => l.startsWith('ERROR:'));
+          if (lines.length > 0) {
+            userMsg = lines[0].replace('ERROR:', '').trim();
+          }
+        }
         return reject(new Error(userMsg));
       }
 

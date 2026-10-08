@@ -4,6 +4,16 @@ import os from 'os';
 
 let cachedCookiesPath: string | null = null;
 
+export function getPythonBin(): string {
+  if (process.env.PYTHON_PATH) {
+    return process.env.PYTHON_PATH;
+  }
+  if (process.platform === 'win32') {
+    return 'python';
+  }
+  return 'python3';
+}
+
 export function getFFmpegPath(): string | null {
   if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
     return process.env.FFMPEG_PATH;

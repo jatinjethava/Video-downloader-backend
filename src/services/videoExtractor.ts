@@ -13,7 +13,7 @@ const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 
-import { getYtDlpBaseArgs, getFFmpegPath } from '../utils/ytdlpConfig';
+import { getYtDlpBaseArgs, getFFmpegPath, getPythonBin } from '../utils/ytdlpConfig';
 
 const FFMPEG_BIN = getFFmpegPath();
 
@@ -64,7 +64,7 @@ export class VideoExtractorService {
       ];
 
       execFile(
-        'python',
+        getPythonBin(),
         args,
         { maxBuffer: 15 * 1024 * 1024, timeout: 25000 },
         (error, stdout, stderr) => {
