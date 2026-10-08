@@ -55,9 +55,6 @@ PORT=5000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
 
-# Optional: Only needed if deploying to AWS/DigitalOcean and YouTube blocks datacenter IPs
-# PROXY_URL=http://username:password@proxy.example.com:8080
-
 # Optional: For cloud hosting (Render/Railway) where you cannot upload cookies.txt
 # YOUTUBE_COOKIES_BASE64=
 ```
