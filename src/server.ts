@@ -43,13 +43,17 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '150', 10),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '2000', 10),
   message: {
     success: false,
     error: 'Too many requests from this IP. Please try again after a few minutes.',
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    const p = req.path || '';
+    return p.includes('/status') || p.includes('/file') || p.includes('/health');
+  },
 });
 app.use('/api/', limiter);
 

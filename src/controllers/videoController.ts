@@ -62,17 +62,21 @@ export class VideoController {
 
   async queueDownload(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
-      const { url, title, formatId } = req.body as { url?: string; title?: string; formatId?: string };
+      const url = (req.body.url || req.query.url) as string | undefined;
+      const title = (req.body.title || req.query.title) as string | undefined;
+      const formatId = (req.body.formatId || req.query.formatId) as string | undefined;
 
-      if (!url) {
+      if (!url || typeof url !== 'string') {
         return res.status(400).json({ success: false, error: 'Missing required "url" parameter.' });
       }
-      if (!isValidUrl(url)) {
+
+      const cleanUrl = url.trim();
+      if (!isValidUrl(cleanUrl)) {
         return res.status(400).json({ success: false, error: 'Invalid URL provided.' });
       }
 
       const { downloadQueue } = await import('../services/jobQueue');
-      const job = downloadQueue.addJob({ url, formatId: formatId || '720p', title });
+      const job = downloadQueue.addJob({ url: cleanUrl, formatId: formatId || '720p', title });
 
       return res.status(202).json({
         success: true,
