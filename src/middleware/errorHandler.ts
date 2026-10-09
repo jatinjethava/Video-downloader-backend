@@ -8,7 +8,7 @@ export function errorHandler(
   err: CustomError,
   req: Request,
   res: Response,
-  
+
   _next: NextFunction
 ): void {
   console.error('API Error:', {

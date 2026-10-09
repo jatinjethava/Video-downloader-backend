@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { MediaExtractionResult } from '../types';
 
 export type JobStatus = 'waiting' | 'active' | 'completed' | 'failed';
 
@@ -80,7 +79,7 @@ class JobQueue extends EventEmitter {
     this.emit(`active:${jobId}`);
 
     try {
-      
+
       const result = await this.executeProcessor(job);
       job.status = 'completed';
       job.result = result;
@@ -100,7 +99,7 @@ class JobQueue extends EventEmitter {
 
   registerProcessor(fn: (job: Job, updateProgress: (p: number) => void) => Promise<{ downloadUrl: string; filePath: string; fileExt: string; title: string }>) {
     this.processorFn = fn;
-    
+
     this.processNext();
   }
 

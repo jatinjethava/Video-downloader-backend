@@ -179,6 +179,14 @@ export class VideoController {
         example: 'https://reddit.com/r/...',
       },
       {
+        id: 'pinterest',
+        name: 'Pinterest',
+        badge: 'Pins & Videos',
+        color: '#e60023',
+        description: 'Pinterest video pins, Idea pins, and stories',
+        example: 'https://pinterest.com/pin/...',
+      },
+      {
         id: 'generic',
         name: 'Universal Web Video',
         badge: 'OpenGraph / HTML5',

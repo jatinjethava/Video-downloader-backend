@@ -38,7 +38,7 @@ export class VideoExtractorService {
     if (platform.id === 'direct') {
       result = await this.extractDirectMedia(cleanUrl, platform);
     } else {
-      const ytDlpPlatforms = ['youtube', 'instagram', 'tiktok', 'twitter', 'facebook', 'vimeo', 'reddit'];
+      const ytDlpPlatforms = ['youtube', 'instagram', 'tiktok', 'twitter', 'facebook', 'vimeo', 'reddit', 'pinterest'];
       if (ytDlpPlatforms.includes(platform.id)) {
         try {
           result = await this.extractYtDlpMedia(cleanUrl, platform);
@@ -125,15 +125,27 @@ export class VideoExtractorService {
             const author = data.uploader || data.channel || platform.name;
             const duration = typeof data.duration === 'number' ? data.duration : null;
 
-            const availableHeights = (data.formats || [])
-              .map((f: any) => (typeof f.height === 'number' ? f.height : 0))
-              .filter((h: number) => h > 0);
-            const maxHeight = availableHeights.length > 0 ? Math.max(...availableHeights) : 1080;
+            const getEffectiveResolution = (f: any): number => {
+              const w = typeof f.width === 'number' ? f.width : 0;
+              const h = typeof f.height === 'number' ? f.height : 0;
+              if (w > 0 && h > 0) {
+                return Math.min(w, h);
+              }
+              return h || w || 0;
+            };
+
+            const availableResolutions = (data.formats || [])
+              .map(getEffectiveResolution)
+              .filter((r: number) => r > 0);
+            const maxRes = availableResolutions.length > 0 ? Math.max(...availableResolutions) : 1080;
 
             const formats: VideoFormat[] = [];
 
-            const findEstimatedSize = (targetHeight: number, defaultLabel: string): { size: number | null; formatted: string } => {
-              const match = (data.formats || []).find((f: any) => f.height === targetHeight && (f.filesize || f.filesize_approx));
+            const findEstimatedSize = (targetRes: number, defaultLabel: string): { size: number | null; formatted: string } => {
+              const match = (data.formats || []).find((f: any) => {
+                const res = getEffectiveResolution(f);
+                return res === targetRes && (f.filesize || f.filesize_approx);
+              });
               if (match) {
                 const bytes = match.filesize || match.filesize_approx;
                 if (typeof bytes === 'number' && bytes > 0) {
@@ -143,7 +155,7 @@ export class VideoExtractorService {
               return { size: null, formatted: defaultLabel };
             };
 
-            if (maxHeight >= 2160) {
+            if (maxRes >= 2160) {
               const sz = findEstimatedSize(2160, '4K Ultra HD');
               formats.push({
                 formatId: '2160p',
@@ -159,7 +171,7 @@ export class VideoExtractorService {
               });
             }
 
-            if (maxHeight >= 1440) {
+            if (maxRes >= 1440) {
               const sz = findEstimatedSize(1440, '2K Quad HD');
               formats.push({
                 formatId: '1440p',
@@ -175,7 +187,7 @@ export class VideoExtractorService {
               });
             }
 
-            if (maxHeight >= 1080) {
+            if (maxRes >= 1080) {
               const sz = findEstimatedSize(1080, 'Full HD');
               formats.push({
                 formatId: '1080p',
@@ -191,7 +203,7 @@ export class VideoExtractorService {
               });
             }
 
-            if (maxHeight >= 720) {
+            if (maxRes >= 720) {
               const sz = findEstimatedSize(720, 'HD Ready');
               formats.push({
                 formatId: '720p',
@@ -207,7 +219,7 @@ export class VideoExtractorService {
               });
             }
 
-            if (maxHeight >= 480) {
+            if (maxRes >= 480) {
               const sz = findEstimatedSize(480, 'Standard');
               formats.push({
                 formatId: '480p',
@@ -327,6 +339,7 @@ export class VideoExtractorService {
       let sizeBytes = 0;
 
       try {
+        // A HEAD request asks the server for response headers without requesting the response body.
         const headRes = await axios.head(url, {
           headers: { 'User-Agent': USER_AGENT },
           timeout: 8000,
@@ -553,6 +566,7 @@ export class VideoExtractorService {
     }
   }
 
+  // download video through yt-dlp
   async streamMedia(targetUrl: string, filename: string, res: Response, formatId?: string): Promise<void> {
     const platform = detectPlatform(targetUrl);
     const safeFilename = sanitizeFilename(filename || 'video');
@@ -642,27 +656,20 @@ export class VideoExtractorService {
     if (isAudio) {
       args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
-      let formatSelector =
-        'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best';
-      if (formatId === '1080p') {
-        formatSelector =
-          'bestvideo[height=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=1080]+bestaudio/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best';
-      } else if (formatId === '720p') {
-        formatSelector =
-          'bestvideo[height=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=720]+bestaudio/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best';
-      } else if (formatId === '480p') {
-        formatSelector =
-          'bestvideo[height=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=480]+bestaudio/bestvideo[height<=480]+bestaudio/best';
-      } else if (formatId === '360p') {
-        formatSelector =
-          'bestvideo[height=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height=360]+bestaudio/bestvideo[height<=360]+bestaudio/best';
-      }
-      args.push('-f', formatSelector, '--merge-output-format', 'mp4');
+      let targetRes = 720;
+      if (formatId === '2160p' || formatId === '4k') targetRes = 2160;
+      else if (formatId === '1440p' || formatId === '2k') targetRes = 1440;
+      else if (formatId === '1080p') targetRes = 1080;
+      else if (formatId === '720p') targetRes = 720;
+      else if (formatId === '480p') targetRes = 480;
+      else if (formatId === '360p') targetRes = 360;
+
+      args.push('-S', `res:${targetRes},ext:mp4:m4a`, '-f', 'bv*+ba/b', '--merge-output-format', 'mp4');
     }
 
     args.push('-o', outTemplate, targetUrl);
 
-    execFile('python', args, { maxBuffer: 15 * 1024 * 1024, timeout: 180000 }, (error, _stdout, stderr) => {
+    execFile(getPythonBin(), args, { maxBuffer: 15 * 1024 * 1024, timeout: 180000 }, (error, _stdout, stderr) => {
       if (error) {
         const errDetails = stderr || error.message || '';
         console.error('yt-dlp download execution error:', errDetails);

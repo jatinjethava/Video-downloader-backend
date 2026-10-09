@@ -60,27 +60,15 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
     if (isAudio) {
       args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
     } else {
-      let formatSelector = 'bestvideo+bestaudio/best';
-      if (formatId === '2160p' || formatId === '4k') {
-        formatSelector =
-          'bestvideo[height<=2160]+bestaudio/best[height<=2160]/best';
-      } else if (formatId === '1440p' || formatId === '2k') {
-        formatSelector =
-          'bestvideo[height<=1440]+bestaudio/best[height<=1440]/best';
-      } else if (formatId === '1080p') {
-        formatSelector =
-          'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best';
-      } else if (formatId === '720p') {
-        formatSelector =
-          'bestvideo[height<=720]+bestaudio/best[height<=720]/best';
-      } else if (formatId === '480p') {
-        formatSelector =
-          'bestvideo[height<=480]+bestaudio/best[height<=480]/best';
-      } else if (formatId === '360p') {
-        formatSelector =
-          'bestvideo[height<=360]+bestaudio/best[height<=360]/best';
-      }
-      args.push('-f', formatSelector, '--merge-output-format', 'mp4');
+      let targetRes = 720;
+      if (formatId === '2160p' || formatId === '4k') targetRes = 2160;
+      else if (formatId === '1440p' || formatId === '2k') targetRes = 1440;
+      else if (formatId === '1080p') targetRes = 1080;
+      else if (formatId === '720p') targetRes = 720;
+      else if (formatId === '480p') targetRes = 480;
+      else if (formatId === '360p') targetRes = 360;
+
+      args.push('-S', `res:${targetRes},ext:mp4:m4a`, '-f', 'bv*+ba/b', '--merge-output-format', 'mp4');
     }
 
     args.push('--newline');

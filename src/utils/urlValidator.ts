@@ -16,7 +16,7 @@ export function detectPlatform(urlString: string): PlatformInfo {
     const host = url.hostname.toLowerCase();
     const pathname = url.pathname.toLowerCase();
 
-    
+
     const directExtensions = ['.mp4', '.webm', '.mkv', '.mov', '.m4v', '.avi', '.flv', '.3gp', '.mp3', '.m4a'];
     if (directExtensions.some((ext) => pathname.endsWith(ext))) {
       return {
