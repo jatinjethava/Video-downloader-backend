@@ -74,7 +74,7 @@ export function getCookiesPath(): string | null {
   return null;
 }
 
-export function getYtDlpBaseArgs(): string[] {
+export function getYtDlpBaseArgs(platformId?: string): string[] {
   const args = [
     '-m',
     'yt_dlp',
@@ -90,21 +90,23 @@ export function getYtDlpBaseArgs(): string[] {
     args.push('--ffmpeg-location', ffmpeg);
   }
 
-  const cookies = getCookiesPath();
-  if (cookies) {
-    args.push('--cookies', cookies);
-    args.push('--extractor-args', 'youtube:player_client=web,web_embedded,android');
-  } else {
-    args.push('--extractor-args', 'youtube:player_client=web_embedded,android');
+  if (!platformId || platformId === 'youtube') {
+    const cookies = getCookiesPath();
+    if (cookies) {
+      args.push('--cookies', cookies);
+      args.push('--extractor-args', 'youtube:player_client=web,web_embedded,android');
+    } else {
+      args.push('--extractor-args', 'youtube:player_client=web_embedded,android');
+    }
+
+    if (process.env.YOUTUBE_POT_PROVIDER_URL) {
+      args.push('--extractor-args', `youtubepot:provider=${process.env.YOUTUBE_POT_PROVIDER_URL}`);
+    }
   }
 
   const proxyUrl = process.env.PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
   if (proxyUrl) {
     args.push('--proxy', proxyUrl);
-  }
-
-  if (process.env.YOUTUBE_POT_PROVIDER_URL) {
-    args.push('--extractor-args', `youtubepot:provider=${process.env.YOUTUBE_POT_PROVIDER_URL}`);
   }
 
   return args;

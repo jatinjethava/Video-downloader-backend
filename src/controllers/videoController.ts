@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import videoExtractor from '../services/videoExtractor';
-import { isValidUrl, detectPlatform } from '../utils/urlValidator';
+import { isValidUrl, detectPlatform, normalizeMediaUrl } from '../utils/urlValidator';
 import { sanitizeFilename } from '../utils/formatters';
 import { PlatformCatalogItem } from '../types';
 
@@ -16,7 +16,7 @@ export class VideoController {
         });
       }
 
-      const cleanUrl = url.trim();
+      const cleanUrl = normalizeMediaUrl(url);
 
       if (!isValidUrl(cleanUrl)) {
         return res.status(400).json({
@@ -44,17 +44,19 @@ export class VideoController {
         });
       }
 
-      if (!isValidUrl(url)) {
+      const cleanUrl = normalizeMediaUrl(url);
+
+      if (!isValidUrl(cleanUrl)) {
         return res.status(400).json({
           success: false,
           error: 'Invalid URL provided.',
         });
       }
 
-      const platform = detectPlatform(url);
+      const platform = detectPlatform(cleanUrl);
       const safeTitle = sanitizeFilename(title || `${platform.name}_video`);
 
-      await videoExtractor.streamMedia(url, safeTitle, res, formatId);
+      await videoExtractor.streamMedia(cleanUrl, safeTitle, res, formatId);
     } catch (error) {
       next(error);
     }
@@ -70,7 +72,7 @@ export class VideoController {
         return res.status(400).json({ success: false, error: 'Missing required "url" parameter.' });
       }
 
-      const cleanUrl = url.trim();
+      const cleanUrl = normalizeMediaUrl(url);
       if (!isValidUrl(cleanUrl)) {
         return res.status(400).json({ success: false, error: 'Invalid URL provided.' });
       }

@@ -5,7 +5,7 @@ import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { detectPlatform, isValidUrl } from '../utils/urlValidator';
+import { detectPlatform, isValidUrl, normalizeMediaUrl } from '../utils/urlValidator';
 import { formatBytes, formatDuration, sanitizeFilename } from '../utils/formatters';
 import { PlatformInfo, VideoFormat, MediaExtractionResult } from '../types';
 
@@ -22,7 +22,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 
 export class VideoExtractorService {
   async extractVideoInfo(rawUrl: string): Promise<MediaExtractionResult> {
-    const cleanUrl = rawUrl.trim();
+    const cleanUrl = normalizeMediaUrl(rawUrl);
     if (!isValidUrl(cleanUrl)) {
       throw new Error('Invalid URL provided. Please enter a valid web link.');
     }
@@ -76,7 +76,7 @@ export class VideoExtractorService {
   async extractYtDlpMedia(url: string, platform: PlatformInfo): Promise<MediaExtractionResult> {
     return new Promise((resolve, reject) => {
       const args = [
-        ...getYtDlpBaseArgs(),
+        ...getYtDlpBaseArgs(platform.id),
         '--no-playlist',
         '--dump-single-json',
         '--skip-download',
@@ -119,6 +119,7 @@ export class VideoExtractorService {
 
           try {
             const data = JSON.parse(stdout);
+            const canonicalUrl = (data.webpage_url || data.original_url || url) as string;
             const title = data.title || `${platform.name} Video`;
             const description = data.description ? data.description.slice(0, 300) : '';
             const thumbnail = data.thumbnail || '';
@@ -164,7 +165,7 @@ export class VideoExtractorService {
                 extension: 'mp4',
                 filesize: sz.size,
                 formattedSize: sz.formatted,
-                downloadUrl: url,
+                downloadUrl: canonicalUrl,
                 isDirect: false,
                 hasAudio: true,
                 hasVideo: true,
@@ -180,7 +181,7 @@ export class VideoExtractorService {
                 extension: 'mp4',
                 filesize: sz.size,
                 formattedSize: sz.formatted,
-                downloadUrl: url,
+                downloadUrl: canonicalUrl,
                 isDirect: false,
                 hasAudio: true,
                 hasVideo: true,
@@ -196,7 +197,7 @@ export class VideoExtractorService {
                 extension: 'mp4',
                 filesize: sz.size,
                 formattedSize: sz.formatted,
-                downloadUrl: url,
+                downloadUrl: canonicalUrl,
                 isDirect: false,
                 hasAudio: true,
                 hasVideo: true,
@@ -212,7 +213,7 @@ export class VideoExtractorService {
                 extension: 'mp4',
                 filesize: sz.size,
                 formattedSize: sz.formatted,
-                downloadUrl: url,
+                downloadUrl: canonicalUrl,
                 isDirect: false,
                 hasAudio: true,
                 hasVideo: true,
@@ -228,7 +229,7 @@ export class VideoExtractorService {
                 extension: 'mp4',
                 filesize: sz.size,
                 formattedSize: sz.formatted,
-                downloadUrl: url,
+                downloadUrl: canonicalUrl,
                 isDirect: false,
                 hasAudio: true,
                 hasVideo: true,
@@ -243,7 +244,7 @@ export class VideoExtractorService {
               extension: 'mp4',
               filesize: sz360.size,
               formattedSize: sz360.formatted,
-              downloadUrl: url,
+              downloadUrl: canonicalUrl,
               isDirect: false,
               hasAudio: true,
               hasVideo: true,
@@ -256,7 +257,7 @@ export class VideoExtractorService {
               extension: 'mp3',
               filesize: null,
               formattedSize: 'Audio HQ',
-              downloadUrl: url,
+              downloadUrl: canonicalUrl,
               isDirect: false,
               hasAudio: true,
               hasVideo: false,
@@ -264,7 +265,7 @@ export class VideoExtractorService {
 
             resolve({
               success: true,
-              url,
+              url: canonicalUrl,
               platform,
               title,
               description,
@@ -568,19 +569,19 @@ export class VideoExtractorService {
 
   // download video through yt-dlp
   async streamMedia(targetUrl: string, filename: string, res: Response, formatId?: string): Promise<void> {
-    const platform = detectPlatform(targetUrl);
+    const cleanUrl = normalizeMediaUrl(targetUrl);
+    const platform = detectPlatform(cleanUrl);
     const safeFilename = sanitizeFilename(filename || 'video');
 
-
     if (platform.id !== 'direct') {
-      return await this.streamYtDlpMedia(targetUrl, safeFilename, res, formatId);
+      return await this.streamYtDlpMedia(cleanUrl, safeFilename, res, formatId);
     }
 
 
     try {
       const streamResponse = await axios({
         method: 'GET',
-        url: targetUrl,
+        url: cleanUrl,
         responseType: 'stream',
         headers: {
           'User-Agent': USER_AGENT,
@@ -630,7 +631,7 @@ export class VideoExtractorService {
     res: Response,
     formatId?: string
   ): Promise<void> {
-
+    const cleanUrl = normalizeMediaUrl(targetUrl);
     const tempDir = path.join(os.tmpdir(), 'vidfetch_downloads');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -641,8 +642,9 @@ export class VideoExtractorService {
     const targetExt = isAudio ? 'mp3' : 'mp4';
     const outTemplate = path.join(tempDir, `${uniqueId}.%(ext)s`);
 
+    const platform = detectPlatform(cleanUrl);
     const args = [
-      ...getYtDlpBaseArgs(),
+      ...getYtDlpBaseArgs(platform.id),
       '--concurrent-fragments',
       '5',
       '--buffer-size',
@@ -667,7 +669,7 @@ export class VideoExtractorService {
       args.push('-S', `res:${targetRes},ext:mp4:m4a`, '-f', 'bv*+ba/b', '--merge-output-format', 'mp4');
     }
 
-    args.push('-o', outTemplate, targetUrl);
+    args.push('-o', outTemplate, cleanUrl);
 
     execFile(getPythonBin(), args, { maxBuffer: 15 * 1024 * 1024, timeout: 180000 }, (error, _stdout, stderr) => {
       if (error) {

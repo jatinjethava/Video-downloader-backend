@@ -10,6 +10,28 @@ export function isValidUrl(urlString: string): boolean {
   }
 }
 
+export function normalizeMediaUrl(urlString: string): string {
+  try {
+    const trimmed = (urlString || '').trim();
+    if (!trimmed) return '';
+    const url = new URL(trimmed);
+    const host = url.hostname.toLowerCase();
+
+    if (host.includes('vimeo.com') && !host.includes('player.vimeo.com')) {
+      const match = url.pathname.match(/(?:channels\/[^/]+\/|groups\/[^/]+\/videos\/|video\/)?(\d+)(?:\/([a-f0-9]{10}))?/i);
+      if (match && match[1]) {
+        const id = match[1];
+        const hash = match[2];
+        return hash ? `https://player.vimeo.com/video/${id}?h=${hash}` : `https://player.vimeo.com/video/${id}`;
+      }
+    }
+
+    return trimmed;
+  } catch {
+    return (urlString || '').trim();
+  }
+}
+
 export function detectPlatform(urlString: string): PlatformInfo {
   try {
     const url = new URL(urlString);

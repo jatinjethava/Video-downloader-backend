@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import { execFile } from 'child_process';
 import { downloadQueue } from '../services/jobQueue';
-import { detectPlatform } from '../utils/urlValidator';
+import { detectPlatform, normalizeMediaUrl } from '../utils/urlValidator';
 
 const tempDir = path.join(os.tmpdir(), 'vidfetch_downloads');
 if (!fs.existsSync(tempDir)) {
@@ -37,10 +37,11 @@ import { getYtDlpBaseArgs, getPythonBin } from '../utils/ytdlpConfig';
 
 downloadQueue.registerProcessor(async (job, updateProgress) => {
   const { url, formatId, title } = job.data as any;
+  const cleanUrl = normalizeMediaUrl(url);
 
   return new Promise((resolve, reject) => {
     updateProgress(10);
-    const platform = detectPlatform(url);
+    const platform = detectPlatform(cleanUrl);
     const isAudio = formatId === 'audio_mp3';
     const targetExt = isAudio ? 'mp3' : 'mp4';
 
@@ -48,7 +49,7 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
     const outTemplate = path.join(tempDir, `${uniqueId}.%(ext)s`);
 
     const args = [
-      ...getYtDlpBaseArgs(),
+      ...getYtDlpBaseArgs(platform.id),
       '--no-playlist',
       '--concurrent-fragments', '5',
       '--buffer-size', '1024K',
@@ -72,7 +73,7 @@ downloadQueue.registerProcessor(async (job, updateProgress) => {
     }
 
     args.push('--newline');
-    args.push('-o', outTemplate, url);
+    args.push('-o', outTemplate, cleanUrl);
 
     const pythonBin = getPythonBin();
     const child = execFile(pythonBin, args, { maxBuffer: 15 * 1024 * 1024, timeout: 300000 }, (error, stdout, stderr) => {
